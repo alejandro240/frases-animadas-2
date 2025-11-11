@@ -1,0 +1,604 @@
+# Desplegar una imatge de Docker amb Github Actions
+
+# 1. Introducció
+
+## 1.1 Què farem?
+
+1. Crearem un projecte amb Laravel i testejarem que localment funcioni.
+2. Pujarem el projecte a Github.
+3. Utilitzarem Github Actions per passar-li un test.
+4. En cas que el test sigui positiu empaquetarem el projecte i el convertirem en una imatge de Docker Hub, seguint amb Github Actions.
+5. Contractarem un petit VPS i desplegarem la nostra pròpia imatge de Docker.
+
+## 1.2 Com ho farem?
+
+1. Recuperarem el projecte de la llista de tasques que vam crear en la teoria anterior.
+2. Ampliarem l’arxiu `.yaml` de Github Actions i afegirem un nou **job**, el **deploy**.
+3. Crearem un compte a Docker Hub per deixar les nostres pròpies imatges.
+4. Emparellarem Docker Hub amb el nostre Github.
+5. Des de qualsevol servidor (en aquest cas un servidor de [Clouding.io](https://clouding.io/)) podrem fer un ***pull*** de la nostra pròpia imatge de Docker i ja tindrem el projecte en funcionament.
+
+# 2. Crear un projecte de Laravel
+
+Com que el projecte és el mateix projecte de tasques de la teoria anterior només copiarem les comandes i el codi dels principals components.
+
+```bash
+composer create-project laravel/laravel tasks-laravel
+```
+
+<aside>
+💡
+
+Tot i ser el mateix projecte li hem canviat el nom i el tornem a crear de nou.
+
+</aside>
+
+```bash
+php artisan make:model Task -mcr
+```
+
+```php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration {
+    public function up(): void
+    {
+        Schema::create('tasks', function (Blueprint $table) {
+            $table->id();
+            $table->string('title');
+            $table->boolean('done')->default(false);
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('tasks');
+    }
+};
+```
+
+```bash
+php artisan migrate
+```
+
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Task extends Model
+{
+    protected $fillable = ['title', 'done'];
+}
+```
+
+```php
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Task;
+use Illuminate\Http\Request;
+
+class TaskController extends Controller
+{
+    public function index()
+    {
+        $tasks = Task::latest()->get();
+        return view('tasks.index', compact('tasks'));
+    }
+
+    public function store(Request $request)
+    {
+        $data = $request->validate([
+            'title' => ['required','string','max:255'],
+        ]);
+
+        Task::create($data);
+        return redirect()->route('tasks.index');
+    }
+
+    public function toggle(Task $task)
+    {
+        $task->update(['done' => ! $task->done]);
+        return redirect()->route('tasks.index');
+    }
+}
+```
+
+```php
+<?php
+
+use App\Http\Controllers\TaskController;
+use Illuminate\Support\Facades\Route;
+
+Route::get('/', [TaskController::class, 'index'])->name('tasks.index');
+Route::post('/tasks', [TaskController::class, 'store'])->name('tasks.store');
+Route::patch('/tasks/{task}/toggle', [TaskController::class, 'toggle'])->name('tasks.toggle');
+```
+
+```html
+<!doctype html>
+<html lang="ca">
+<head>
+  <meta charset="utf-8">
+  <title>Task Demo</title>
+  <!-- Per simplicitat, style mínim inline -->
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; }
+    form { margin: 1rem 0; display: flex; gap: .5rem; }
+    input[type=text]{ flex:1; padding:.5rem; }
+    button { padding:.5rem 1rem; }
+    ul{list-style:none; padding:0; margin:1rem 0;}
+    li{ display:flex; justify-content:space-between; border:1px solid #ddd; padding:.5rem; margin:.25rem 0; border-radius: .375rem;}
+    .done { text-decoration: line-through; color: #666; }
+  </style>
+</head>
+<body>
+  <h1>📋 Llista de tasques</h1>
+
+  <form method="POST" action="{{ route('tasks.store') }}">
+    @csrf
+    <input type="text" name="title" placeholder="Nova tasca..." required>
+    <button type="submit">Afegir</button>
+  </form>
+
+  @error('title')
+    <p style="color:#c00">{{ $message }}</p>
+  @enderror
+
+  <ul>
+    @forelse($tasks as $task)
+      <li>
+        <span class="{{ $task->done ? 'done' : '' }}">{{ $task->title }}</span>
+        <form method="POST" action="{{ route('tasks.toggle', $task) }}">
+          @csrf @method('PATCH')
+          <button type="submit">{{ $task->done ? 'Desfer' : 'Fet' }}</button>
+        </form>
+      </li>
+    @empty
+      <li>No hi ha tasques encara.</li>
+    @endforelse
+  </ul>
+</body>
+</html>
+```
+
+```html
+php artisan make:test TaskTest
+```
+
+```php
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Task;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class TaskTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_the_homepage_loads()
+    {
+        $this->get('/')->assertStatus(200)->assertSee('Llista de tasques');
+    }
+
+    public function test_we_can_create_a_task()
+    {
+        $response = $this->post('/tasks', ['title' => 'Provar CI']);
+        $response->assertRedirect('/');
+        $this->assertDatabaseHas('tasks', ['title' => 'Provar CI', 'done' => false]);
+    }
+
+    public function test_we_can_toggle_a_task()
+    {
+        $task = Task::create(['title' => 'Tasca', 'done' => false]);
+
+        // Comprova que la tasca inicialment no està feta
+        $this->assertFalse($task->done);
+
+        $this->patch("/tasks/{$task->id}/toggle")->assertRedirect('/');
+
+        // Actualitza la tasca
+        $task = $task->fresh();
+
+        //vull saber si el camp done és 1 o 0 a la base de dades
+        $this->assertDatabaseHas('tasks', ['id' => $task->id, 'done' => true]);
+    }
+}
+```
+
+Ara cal crear el manifest de Docker. Recorda que voldrem empaquetar aquest projecte i convertir-lo en una imatge de Docker.
+
+### 2.1 Incorporació dels manifestos per Docker
+
+Nosaltres voldrem empaquetar tot el projecte de Laravel en una imatge de Docker. Per tant ens hem de “cuinar” un fitxer Dockerfile personalitzat.
+
+Aquest fitxer Dockerfile el podem posar on vulguem. En aquest cas el posarem a l’arrel del projecte:
+
+```yaml
+# --- STAGE 1: Build de Node (Assets) ---
+FROM node:20-alpine AS node_builder
+WORKDIR /app
+
+# Copiem package.json i package-lock.json (o yarn.lock)
+COPY package*.json package-lock.json ./
+# Instal·lem les dependències de Node
+RUN npm ci
+
+# Copiem la resta del codi
+COPY . .
+
+# Construïm els assets
+RUN npm run build
+
+# --- STAGE 2: PHP Dependencies (Composer) ---
+FROM composer:2 AS composer_builder
+WORKDIR /app
+# Copiem el codi de l'aplicació i els assets construïts
+COPY --from=node_builder /app /app
+
+# Instal·lem les dependències de PHP (sense --dev per producció)
+# Utilitzem ' --ignore-platform-reqs' si no tenim instal·lades totes les extensions encara
+# Però idealment, s'han d'especificar totes les extensions a la imatge base
+RUN composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
+
+# --- STAGE 3: Final Image ---
+FROM php:8.2-fpm-alpine
+
+# Paquets + extensions PHP necessàries per Laravel + SQLite
+RUN set -eux; \
+    # 1. ACTUALITZAR L'ÍNDEX DE REPOSITORIS (clau per trobar els paquets)
+    apk update; \
+    # 2. Instal·lar dependències de construcció i extensions de PHP
+    apk add --no-cache --virtual .build-deps $PHPIZE_DEPS icu-dev sqlite-dev oniguruma-dev libzip-dev; \
+    apk add --no-cache icu sqlite-libs git unzip; \
+    docker-php-ext-configure intl; \
+    docker-php-ext-install -j"$(nproc)" pdo_sqlite bcmath intl mbstring; \
+    docker-php-ext-enable opcache; \
+    # 3. Eliminar les dependències de construcció per reduir la imatge
+    apk del .build-deps
+
+# Definim el directori de treball
+WORKDIR /var/www/html
+
+# Copiem el codi de l'aplicació (amb assets i dependències) des del stage de Composer
+# Excloem fitxers que no són necessaris (e.g., .git, dockerfiles, etc.) si no useu .dockerignore
+COPY --from=composer_builder /app /var/www/html
+
+# Ajustem permisos per a Laravel (storage, bootstrap/cache)
+# Això suposa que l'usuari 'laravel' té UID 1000
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 775 /var/www/html/storage \
+    && chmod -R 775 /var/www/html/bootstrap/cache
+
+# Usuari no root per seguretat (www-data és l'usuari per defecte de php-fpm)
+USER www-data
+
+# Exposar el port de PHP-FPM
+EXPOSE 9000
+# El punt d'entrada per defecte (php-fpm) ja és correcte
+```
+
+De moment amb això ja en tenim prou. Quan ho despleguem al servidor muntarem un manifest de compose per tenir un servidor web, però això ja ho farem més endavant.
+
+# 3. Docker Hub
+
+## 3.1 Creació d’un compte
+
+Com que voldrem empaquetar el nostre projecte com a imatge de Docker per en un futur desplegar-lo en un servidor, allotjarem aquesta imatge a Docker Hub.
+
+Amb un compte gratuït podem crear una imatge privada i il·limitades imatges públiques.
+
+Si és el primer cop que ens loguegem segurament no tindrem encara cap imatge:
+
+![image.png](attachment:152877ec-bee2-4118-b184-dae27fbdf5ae:image.png)
+
+## 3.2 Emparellar Docker Hub i Github
+
+Necessitarem uns ACCESS TOKENS per poder-los posar a Github i que aquest s’autentiqui contra Docker Hub.
+
+![image.png](attachment:78d6e2c2-1224-4c7a-b275-35af1be30ac9:image.png)
+
+![image.png](attachment:92679a35-a5ce-471d-86b6-eccf690376d1:image.png)
+
+![image.png](attachment:0aff91aa-543a-4812-bcb5-e75060421dad:image.png)
+
+El token que es mostrarà a continuació s’ha de copiar i desar-lo en algun lloc segur perquè el sistema no permetrà que el veiem més. Més endavant el necessitarem.
+
+# 4. Pujar el projecte a Github
+
+## 4.1 Inicialitzar el repo i pujar-ho a GitHub
+
+Primer crearem un nou repositori a Github, per exemple l’anomenarem **tasks-laravel**
+
+![image.png](attachment:9ba4738b-3617-4e4d-8b0a-9c65b884099c:image.png)
+
+Ara dins el nostre projecte farem:
+
+```bash
+git init
+```
+
+```bash
+git add .
+```
+
+```bash
+git commit -m "Creació del porjecte d'exemple de CI/CD amb Laravel"
+```
+
+Creem la branca `main` per emparellar la nomenclatura amb Github:
+
+```bash
+git branch -M main
+```
+
+Ara emparellem el nostre repositori local amb el repositori remot:
+
+```bash
+git remote add origin https://github.com/adalmau/tasks-laravel.git
+```
+
+<aside>
+⚠️
+
+Recorda canviar la ruta per la teva pròpia ruta
+
+</aside>
+
+Finalment fem el `push`:
+
+```bash
+git push -u origin main
+```
+
+## 4.2 Afegir GitHub Actions
+
+Crearem a l’arrel del nostre projecte el fitxer `.github/workflows/ci.yml`. Ara, però, tal com hem dit, tindrem un **job** nou: **deploy**:
+
+```yaml
+name: CI/CD (Laravel)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, bcmath, pdo_sqlite
+          coverage: none
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
+
+      - name: Install Composer dependencies
+        run: composer install --no-progress --prefer-dist --optimize-autoloader
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          touch database/database.sqlite
+          php artisan migrate --force
+
+      - name: Run tests
+        run: php artisan test --no-coverage
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout 
+        uses: actions/checkout@v2
+        
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@master
+        with:
+          platforms: all
+          
+      - name: Login to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+          
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+        
+      - name: Build and push
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./docker/php/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/laravel:latest
+```
+
+Ara aquest fitxer que encara no està trackejat per Git l’haurem de trackejar i pujar-lo també al repositori remot:
+
+```bash
+git add .
+```
+
+```bash
+git commit -m "Afegim el fitxer de Github Actions"
+```
+
+```bash
+git push -u origin main
+```
+
+Si anem a veure com es desenvolupa aquesta **Action** veurem que ha fallat. Si ens fixem en l’error:
+
+![image.png](attachment:c2ed1802-d8dc-4d4a-aa4a-39aa412f84b7:image.png)
+
+Fixem-nos que el **job tests** és correcte (ha passat tots els tests) però s’ha encallat en el **job** de **build**, i concretament ens diu que no té cap contrasenya per la instrucció de connectar-se a Docker Hub.
+
+Això és perquè en l’arxiu ci.yaml hem definit el **username** i el **password** de Docker Hub com a *secrets*:
+
+![image.png](attachment:9acaeb0d-4942-4077-a9c8-b4422a5ba272:image.png)
+
+Això és una bona pràctica per no anar deixant dades sensibles en fitxers que es poden convertir.
+
+Anem a configurar aquests *secrets* al nostre Github.
+
+Anem a Settings → Secrets and variables → Actions → New repository secret
+
+![image.png](attachment:c67ef560-f6e2-45b7-88bb-c9cb6b1e63a8:image.png)
+
+Aquí creem el DOCKER_HUB_USERNAME:
+
+![image.png](attachment:c4d8fc6f-21a0-4f6c-a6a9-e63be4166123:image.png)
+
+I a continuació crearem el DOCKER_HUB_ACCESS_TOKEN:
+
+![image.png](attachment:d055b4a5-f271-4a06-951b-228f78f3b381:image.png)
+
+<aside>
+💡
+
+Per motius de seguretat aquest ACCESS TOKEN no s’hauria de compartir amb ningú.
+
+</aside>
+
+![image.png](attachment:5d5a0ee6-5782-4571-8b6f-9719cc92fd8f:image.png)
+
+Ara fem qualsevol canvi al projecte (posar un espai en blanc a qualsevol lloc, per exemple) per tal de poder fer un *push* de nou.
+
+<aside>
+💡
+
+És un procés llarg. Pots veure la seva evolució clicant sobre Build.
+
+En la construcció d’aquesta documentació el procés va tardar 12m25s
+
+![image.png](attachment:6bcee393-f901-4a25-a986-124e71594459:image.png)
+
+</aside>
+
+El procés tardarà una estona força llarga però ara les **Actions** haurien de funcionar correctament.
+
+I ara quan anem a Docker Hub veurem que ja tenim la nostra primera imatge:
+
+![image.png](attachment:67d39cff-5b9d-4261-a5c7-20bb3493c9a0:image.png)
+
+# 5. Desplegar la imatge en producció
+
+Ara desplegarem aquesta imatge en un servidor.
+
+Igual que vàrem fer en la AEA anterior contractarem un servidor a [Clouding.io](http://Clouding.io) i a continuació desplegarem la imatge.
+
+En comptes de contractar un servidor Linux i instal·lar Docker aprofitem que Clouding ens ofereix un servidor Docker ja muntat:
+
+![image.png](attachment:7cca50bc-69c5-449a-9708-d99b206893a8:image.png)
+
+Efectivament, a l’entrar al servidor veiem que ja hi ha Docker instal·lat sobre un sistema Ubuntu:
+
+![image.png](attachment:c95149d7-bfc4-460f-9110-32bfadb6944c:image.png)
+
+A la ruta que vulguem, per exemple `tasks-laravel`, ens creem el manifest `docker-compose.yaml` i l’arxiu de configuració de NGINX `default.conf`:
+
+```yaml
+services:
+  app:
+    image: adalmau/tasks-laravel
+    container_name: laravel_app
+    # Hem eliminat els volums ja que el codi és a la imatge
+    working_dir: /var/www/html
+    environment:
+      # Mantindrem variables d'entorn
+      APP_ENV: production # Normalment es posa 'production' en imatges per a Docker Hub
+      APP_DEBUG: "false"
+      APP_URL: http://localhost   
+    expose:
+      - "9000" # Exposem el port de PHP-FPM
+
+  web:
+    image: nginx:alpine
+    container_name: laravel_web
+    ports:
+      - "80:80"
+    volumes:
+      # El codi ja NO es munta, Nginx accedeix als fitxers que són al contenidor `app` via PHP-FPM
+      # Només muntem la configuració d'Nginx
+      - ./default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app # Nginx depèn de l'app de PHP-FPM
+
+  # El servei 'node' ja no és necessari, ja que els assets s'han construït durant el Docker build.
+```
+
+```
+server {
+    # Escolta el port 80
+    listen 80;
+    server_name localhost;
+    root /var/www/html/public; # Laravel utilitza el subdirectori /public com a arrel web
+
+    # Mida màxima per pujada de fitxers (ajusta segons necessitis)
+    client_max_body_size 25m;
+
+    # Afegim l'índex per defecte de Nginx
+    index index.php index.html;
+
+    # Configuració per evitar missatges d'error a Nginx
+    error_log /var/log/nginx/error.log;
+    access_log /var/log/nginx/access.log;
+
+    # 1. Gestionar peticions d'arxius estàtics (CSS, JS, Imatges)
+    # Si l'arxiu existeix, el serveix directament
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    # 2. Gestionar peticions PHP (totes passen pel ficher index.php)
+    location ~ \.php$ {
+        # El nom del host aquí és el nom del servei de Docker Compose: 'app'
+        # El port per defecte de PHP-FPM és 9000
+        fastcgi_pass app:9000;
+
+        # Desactivem el buffer si es fa una comunicació a PHP-FPM localment
+        fastcgi_buffers 16 16k;
+        fastcgi_buffer_size 32k;
+
+        # Inclou els paràmetres estàndards
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param PATH_INFO $fastcgi_path_info;
+    }
+
+    # 3. Denegar l'accés a fitxers .env i .ht* per seguretat
+    location ~ /\.env|/\.ht {
+        deny all;
+    }
+}
+```
+
+I un cop aixequem el contenidor ja tenim el projecte funcionant.
+
+Si mai canvia el projecte només haurem de desplegar la nova imatge, que és la `latest`.
