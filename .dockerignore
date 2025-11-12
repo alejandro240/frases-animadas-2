@@ -1,0 +1,71 @@
+# Git
+.git
+.github
+.gitignore
+.gitattributes
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules
+vendor
+
+# Tests
+tests
+phpunit.xml
+.phpunit.result.cache
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# Logs
+storage/logs/*
+!storage/logs/.gitignore
+
+# Cache
+storage/framework/cache/*
+!storage/framework/cache/.gitignore
+storage/framework/sessions/*
+!storage/framework/sessions/.gitignore
+storage/framework/testing/*
+!storage/framework/testing/.gitignore
+storage/framework/views/*
+!storage/framework/views/.gitignore
+
+# Documentation
+*.md
+README.md
+CHANGELOG.md
+LICENSE
+
+# CI/CD
+.github/workflows/*
+
+# Build artifacts
+public/hot
+public/storage
+public/build
+
+# Temporary files
+*.txt
+!robots.txt
+
+# Laravel specific
+bootstrap/cache/*
+!bootstrap/cache/.gitignore
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# NPM
+package-lock.json
+npm-debug.log
+yarn-error.log

@@ -1,4 +1,4 @@
-name: linter
+name: Code Quality (Linter)
 
 on:
   push:
@@ -14,33 +14,79 @@ permissions:
   contents: write
 
 jobs:
-  quality:
+  lint:
     runs-on: ubuntu-latest
     environment: Testing
+    
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
+          extensions: mbstring, bcmath, intl
+          tools: composer:v2
 
-      - name: Add Flux Credentials Loaded From ENV
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Add Flux Credentials
         run: composer config http-basic.composer.fluxui.dev "${{ secrets.FLUX_USERNAME }}" "${{ secrets.FLUX_LICENSE_KEY }}"
+        continue-on-error: true
 
-      - name: Install Dependencies
-        run: |
-          composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
-          npm install
+      - name: Install Composer Dependencies
+        run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
 
-      - name: Run Pint
+      - name: Install Node Dependencies
+        run: npm ci
+
+      - name: Run Laravel Pint (Code Formatter)
         run: vendor/bin/pint
 
-      # - name: Commit Changes
-      #   uses: stefanzweifel/git-auto-commit-action@v5
-      #   with:
-      #     commit_message: fix code style
-      #     commit_options: '--no-verify'
-      #     file_pattern: |
-      #       **/*
-      #       !.github/workflows/*
+      - name: Check for modified files
+        id: git-check
+        run: echo "modified=$(if git diff-index --quiet HEAD --; then echo 'false'; else echo 'true'; fi)" >> $GITHUB_OUTPUT
+
+      - name: Commit changes
+        if: steps.git-check.outputs.modified == 'true'
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: 'style: fix code style with Laravel Pint'
+          commit_options: '--no-verify'
+          file_pattern: |
+            **/*.php
+            !vendor/**
+            !node_modules/**
+
+  phpstan:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, bcmath, intl
+          tools: composer:v2
+
+      - name: Add Flux Credentials
+        run: composer config http-basic.composer.fluxui.dev "${{ secrets.FLUX_USERNAME }}" "${{ secrets.FLUX_LICENSE_KEY }}"
+        continue-on-error: true
+
+      - name: Install Dependencies
+        run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+
+      - name: Run PHPStan (Static Analysis)
+        run: ./vendor/bin/phpstan analyse --memory-limit=2G
+        continue-on-error: true

@@ -1,0 +1,21 @@
+includes:
+    - ./vendor/larastan/larastan/extension.neon
+
+parameters:
+    paths:
+        - app/
+        - config/
+        - database/
+        - routes/
+        - tests/
+
+    # Level 0 es el más permisivo, 9 el más estricto
+    level: 5
+
+    ignoreErrors:
+        - '#PHPDoc tag @var#'
+        
+    excludePaths:
+        - ./*/*/FileToBeExcluded.php
+
+    checkMissingIterableValueType: false
