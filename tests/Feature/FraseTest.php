@@ -281,7 +281,7 @@ class FraseTest extends TestCase
         $response = $this->actingAs($user)->get(route('dashboard'));
 
         $response->assertStatus(200);
-        
+
         // Verificar que las frases aparecen en el orden correcto
         $frases = $response->viewData('frases');
         $this->assertEquals($frase3->id, $frases[0]->id);
@@ -309,7 +309,7 @@ class FraseTest extends TestCase
     public function test_user_can_have_multiple_frases(): void
     {
         $user = User::factory()->create();
-        
+
         Frase::factory()->count(5)->create([
             'user_id' => $user->id,
         ]);

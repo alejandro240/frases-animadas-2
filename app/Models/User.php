@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
+
 class User extends Authenticatable
 {
     use HasFactory, Notifiable, TwoFactorAuthenticatable;
@@ -28,7 +29,7 @@ class User extends Authenticatable
 
         if (count($names) >= 2) {
             // Tomar primera letra del primer y segundo nombre
-            return strtoupper(substr($names[0], 0, 1) . substr($names[1], 0, 1));
+            return strtoupper(substr($names[0], 0, 1).substr($names[1], 0, 1));
         }
 
         // Si solo hay un nombre, tomar las dos primeras letras
