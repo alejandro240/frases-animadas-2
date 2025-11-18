@@ -2,10 +2,13 @@
 FROM node:22-alpine AS node_builder
 WORKDIR /app
 
+# Instalar dependencias necesarias para compilaciones nativas
+RUN apk add --no-cache python3 make g++
+
 # Copiar package.json y package-lock.json
 COPY package*.json ./
-# Instalar dependencias de Node
-RUN npm ci
+# Instalar dependencias de Node (incluyendo opcionales)
+RUN npm ci --include=optional
 
 # Copiar el resto del código
 COPY . .
