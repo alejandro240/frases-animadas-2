@@ -8,6 +8,9 @@ services:
       APP_ENV: production
       APP_DEBUG: "false"
       APP_URL: http://localhost
+    volumes:
+      # Compartir código con Nginx para servir archivos estáticos
+      - app_data:/var/www/html
     expose:
       - "9000" # Exponer puerto de PHP-FPM
 
@@ -17,7 +20,12 @@ services:
     ports:
       - "80:80"
     volumes:
+      # Montar el mismo volumen para acceder a archivos estáticos
+      - app_data:/var/www/html:ro
       # Solo montar configuración de Nginx
       - ./default.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - app # Nginx depende de la app de PHP-FPM
+
+volumes:
+  app_data:
