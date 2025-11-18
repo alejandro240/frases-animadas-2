@@ -9,13 +9,13 @@ parameters:
         - routes/
         - tests/
 
-    # Level 0 es el más permisivo, 9 el más estricto
+    # Nivel 0 es el más permisivo, 9 el más estricto
     level: 5
 
     ignoreErrors:
         - '#PHPDoc tag @var#'
-        
+
     excludePaths:
-        - ./*/*/FileToBeExcluded.php
+        - ./*/*/ArchivoExcluido.php
 
     checkMissingIterableValueType: false

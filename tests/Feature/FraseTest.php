@@ -11,309 +11,275 @@ class FraseTest extends TestCase
 {
     use RefreshDatabase;
 
-    /**
-     * Test que verifica que un usuario autenticado puede acceder al dashboard.
-     */
-    public function test_authenticated_user_can_access_dashboard(): void
+    /** Usuario autenticado puede acceder al dashboard */
+    public function test_usuario_accede_dashboard(): void
     {
-        $user = User::factory()->create();
+        $usuario = User::factory()->create();
 
-        $response = $this->actingAs($user)->get(route('dashboard'));
+        $respuesta = $this->actingAs($usuario)->get(route('dashboard'));
 
-        $response->assertStatus(200);
-        $response->assertViewIs('frases.index');
+        $respuesta->assertStatus(200);
+        $respuesta->assertViewIs('frases.index');
     }
 
-    /**
-     * Test que verifica que usuarios no autenticados son redirigidos al login.
-     */
-    public function test_unauthenticated_user_cannot_access_dashboard(): void
+    /** Usuario sin autenticar es redirigido al login */
+    public function test_invitado_redirige_login(): void
     {
-        $response = $this->get(route('dashboard'));
+        $respuesta = $this->get(route('dashboard'));
 
-        $response->assertRedirect(route('login'));
+        $respuesta->assertRedirect(route('login'));
     }
 
-    /**
-     * Test que verifica que un usuario puede ver el formulario de creación.
-     */
-    public function test_user_can_view_create_form(): void
+    /** Usuario puede ver formulario de creación */
+    public function test_usuario_ve_formulario_crear(): void
     {
-        /** @var \App\Models\User $user */
-        $user = User::factory()->create();
+        /** @var \App\Models\User $usuario */
+        $usuario = User::factory()->create();
 
-        $response = $this->actingAs($user)->get(route('frases.create'));
+        $respuesta = $this->actingAs($usuario)->get(route('frases.create'));
 
-        $response->assertStatus(200);
-        $response->assertViewIs('frases.create');
-        $response->assertSee('Matrix Digital Rain');
-        $response->assertSee('Quantum Glitch');
+        $respuesta->assertStatus(200);
+        $respuesta->assertViewIs('frases.create');
+        $respuesta->assertSee('Matrix Digital Rain');
+        $respuesta->assertSee('Quantum Glitch');
     }
 
-    /**
-     * Test que verifica que un usuario puede crear una nueva frase.
-     */
-    public function test_user_can_create_a_frase(): void
+    /** Usuario puede crear una frase */
+    public function test_usuario_crea_frase(): void
     {
-        $user = User::factory()->create();
+        $usuario = User::factory()->create();
 
-        $fraseData = [
+        $datos = [
             'texto' => 'Esta es una frase de prueba',
             'animacion' => 'matrix',
         ];
 
-        $response = $this->actingAs($user)->post(route('frases.store'), $fraseData);
+        $respuesta = $this->actingAs($usuario)->post(route('frases.store'), $datos);
 
-        $response->assertRedirect();
+        $respuesta->assertRedirect();
         $this->assertDatabaseHas('frases', [
             'texto' => 'Esta es una frase de prueba',
             'animacion' => 'matrix',
-            'user_id' => $user->id,
+            'user_id' => $usuario->id,
         ]);
     }
 
-    /**
-     * Test que verifica todas las animaciones válidas.
-     */
-    public function test_user_can_create_frase_with_all_animation_types(): void
+    /** Usuario puede crear frases con todas las animaciones */
+    public function test_usuario_crea_todas_animaciones(): void
     {
-        $user = User::factory()->create();
+        $usuario = User::factory()->create();
         $animaciones = ['matrix', 'quantum', 'nebula', 'hologram', 'particle'];
 
         foreach ($animaciones as $animacion) {
-            $fraseData = [
+            $datos = [
                 'texto' => "Frase con animación {$animacion}",
                 'animacion' => $animacion,
             ];
 
-            $response = $this->actingAs($user)->post(route('frases.store'), $fraseData);
+            $respuesta = $this->actingAs($usuario)->post(route('frases.store'), $datos);
 
-            $response->assertRedirect();
+            $respuesta->assertRedirect();
             $this->assertDatabaseHas('frases', [
                 'texto' => "Frase con animación {$animacion}",
                 'animacion' => $animacion,
-                'user_id' => $user->id,
+                'user_id' => $usuario->id,
             ]);
         }
     }
 
-    /**
-     * Test que verifica que el campo texto es requerido.
-     */
-    public function test_texto_field_is_required(): void
+    /** Campo texto es obligatorio */
+    public function test_texto_obligatorio(): void
     {
-        $user = User::factory()->create();
+        $usuario = User::factory()->create();
 
-        $response = $this->actingAs($user)->post(route('frases.store'), [
+        $respuesta = $this->actingAs($usuario)->post(route('frases.store'), [
             'texto' => '',
             'animacion' => 'matrix',
         ]);
 
-        $response->assertSessionHasErrors('texto');
+        $respuesta->assertSessionHasErrors('texto');
     }
 
-    /**
-     * Test que verifica que el campo animacion es requerido.
-     */
-    public function test_animacion_field_is_required(): void
+    /** Campo animacion es obligatorio */
+    public function test_animacion_obligatoria(): void
     {
-        $user = User::factory()->create();
+        $usuario = User::factory()->create();
 
-        $response = $this->actingAs($user)->post(route('frases.store'), [
+        $respuesta = $this->actingAs($usuario)->post(route('frases.store'), [
             'texto' => 'Texto de prueba',
             'animacion' => '',
         ]);
 
-        $response->assertSessionHasErrors('animacion');
+        $respuesta->assertSessionHasErrors('animacion');
     }
 
-    /**
-     * Test que verifica que el campo texto no puede exceder 255 caracteres.
-     */
-    public function test_texto_field_cannot_exceed_255_characters(): void
+    /** Texto no puede exceder 255 caracteres */
+    public function test_texto_maximo_255(): void
     {
-        $user = User::factory()->create();
+        $usuario = User::factory()->create();
 
-        $response = $this->actingAs($user)->post(route('frases.store'), [
+        $respuesta = $this->actingAs($usuario)->post(route('frases.store'), [
             'texto' => str_repeat('a', 256),
             'animacion' => 'matrix',
         ]);
 
-        $response->assertSessionHasErrors('texto');
+        $respuesta->assertSessionHasErrors('texto');
     }
 
-    /**
-     * Test que verifica que solo se aceptan animaciones válidas.
-     */
-    public function test_only_valid_animations_are_accepted(): void
+    /** Solo se aceptan animaciones válidas */
+    public function test_solo_animaciones_validas(): void
     {
-        $user = User::factory()->create();
+        $usuario = User::factory()->create();
 
-        $response = $this->actingAs($user)->post(route('frases.store'), [
+        $respuesta = $this->actingAs($usuario)->post(route('frases.store'), [
             'texto' => 'Texto de prueba',
-            'animacion' => 'invalid_animation',
+            'animacion' => 'animacion_invalida',
         ]);
 
-        $response->assertSessionHasErrors('animacion');
+        $respuesta->assertSessionHasErrors('animacion');
     }
 
-    /**
-     * Test que verifica que un usuario puede ver una frase que le pertenece.
-     */
-    public function test_user_can_view_their_own_frase(): void
+    /** Usuario puede ver su propia frase */
+    public function test_usuario_ve_su_frase(): void
     {
-        $user = User::factory()->create();
+        $usuario = User::factory()->create();
         $frase = Frase::factory()->create([
-            'user_id' => $user->id,
+            'user_id' => $usuario->id,
             'texto' => 'Mi frase de prueba',
             'animacion' => 'matrix',
         ]);
 
-        $response = $this->actingAs($user)->get(route('frases.show', $frase));
+        $respuesta = $this->actingAs($usuario)->get(route('frases.show', $frase));
 
-        $response->assertStatus(200);
-        $response->assertSee('Mi frase de prueba');
+        $respuesta->assertStatus(200);
+        $respuesta->assertSee('Mi frase de prueba');
     }
 
-    /**
-     * Test que verifica que un usuario no puede ver frases de otros usuarios.
-     */
-    public function test_user_cannot_view_other_users_frases(): void
+    /** Usuario no puede ver frases de otros */
+    public function test_usuario_no_ve_frases_ajenas(): void
     {
-        $user = User::factory()->create();
-        $otherUser = User::factory()->create();
+        $usuario = User::factory()->create();
+        $otroUsuario = User::factory()->create();
         $frase = Frase::factory()->create([
-            'user_id' => $otherUser->id,
+            'user_id' => $otroUsuario->id,
         ]);
 
-        $response = $this->actingAs($user)->get(route('frases.show', $frase));
+        $respuesta = $this->actingAs($usuario)->get(route('frases.show', $frase));
 
-        $response->assertStatus(403);
+        $respuesta->assertStatus(403);
     }
 
-    /**
-     * Test que verifica que un usuario puede eliminar su propia frase.
-     */
-    public function test_user_can_delete_their_own_frase(): void
+    /** Usuario puede eliminar su propia frase */
+    public function test_usuario_elimina_su_frase(): void
     {
-        $user = User::factory()->create();
+        $usuario = User::factory()->create();
         $frase = Frase::factory()->create([
-            'user_id' => $user->id,
+            'user_id' => $usuario->id,
         ]);
 
-        $response = $this->actingAs($user)->delete(route('frases.destroy', $frase));
+        $respuesta = $this->actingAs($usuario)->delete(route('frases.destroy', $frase));
 
-        $response->assertRedirect();
+        $respuesta->assertRedirect();
         $this->assertDatabaseMissing('frases', [
             'id' => $frase->id,
         ]);
     }
 
-    /**
-     * Test que verifica que un usuario no puede eliminar frases de otros usuarios.
-     */
-    public function test_user_cannot_delete_other_users_frases(): void
+    /** Usuario no puede eliminar frases ajenas */
+    public function test_usuario_no_elimina_frases_ajenas(): void
     {
-        $user = User::factory()->create();
-        $otherUser = User::factory()->create();
+        $usuario = User::factory()->create();
+        $otroUsuario = User::factory()->create();
         $frase = Frase::factory()->create([
-            'user_id' => $otherUser->id,
+            'user_id' => $otroUsuario->id,
         ]);
 
-        $response = $this->actingAs($user)->delete(route('frases.destroy', $frase));
+        $respuesta = $this->actingAs($usuario)->delete(route('frases.destroy', $frase));
 
-        $response->assertStatus(403);
+        $respuesta->assertStatus(403);
         $this->assertDatabaseHas('frases', [
             'id' => $frase->id,
         ]);
     }
 
-    /**
-     * Test que verifica que el dashboard muestra solo las frases del usuario autenticado.
-     */
-    public function test_dashboard_shows_only_user_frases(): void
+    /** Dashboard muestra solo frases del usuario */
+    public function test_dashboard_solo_frases_propias(): void
     {
-        $user = User::factory()->create();
-        $otherUser = User::factory()->create();
+        $usuario = User::factory()->create();
+        $otroUsuario = User::factory()->create();
 
-        $userFrase = Frase::factory()->create([
-            'user_id' => $user->id,
+        $frasePropia = Frase::factory()->create([
+            'user_id' => $usuario->id,
             'texto' => 'Frase del usuario',
         ]);
 
-        $otherUserFrase = Frase::factory()->create([
-            'user_id' => $otherUser->id,
+        $fraseAjena = Frase::factory()->create([
+            'user_id' => $otroUsuario->id,
             'texto' => 'Frase de otro usuario',
         ]);
 
-        $response = $this->actingAs($user)->get(route('dashboard'));
+        $respuesta = $this->actingAs($usuario)->get(route('dashboard'));
 
-        $response->assertStatus(200);
-        $response->assertSee('Frase del usuario');
-        $response->assertDontSee('Frase de otro usuario');
+        $respuesta->assertStatus(200);
+        $respuesta->assertSee('Frase del usuario');
+        $respuesta->assertDontSee('Frase de otro usuario');
     }
 
-    /**
-     * Test que verifica que las frases se muestran ordenadas por las más recientes.
-     */
-    public function test_frases_are_listed_in_descending_order(): void
+    /** Frases se ordenan por las más recientes */
+    public function test_frases_ordenadas_recientes(): void
     {
-        $user = User::factory()->create();
+        $usuario = User::factory()->create();
 
         $frase1 = Frase::factory()->create([
-            'user_id' => $user->id,
+            'user_id' => $usuario->id,
             'texto' => 'Primera frase',
             'created_at' => now()->subDays(2),
         ]);
 
         $frase2 = Frase::factory()->create([
-            'user_id' => $user->id,
+            'user_id' => $usuario->id,
             'texto' => 'Segunda frase',
             'created_at' => now()->subDay(),
         ]);
 
         $frase3 = Frase::factory()->create([
-            'user_id' => $user->id,
+            'user_id' => $usuario->id,
             'texto' => 'Tercera frase',
             'created_at' => now(),
         ]);
 
-        $response = $this->actingAs($user)->get(route('dashboard'));
+        $respuesta = $this->actingAs($usuario)->get(route('dashboard'));
 
-        $response->assertStatus(200);
-        
-        // Verificar que las frases aparecen en el orden correcto
-        $frases = $response->viewData('frases');
+        $respuesta->assertStatus(200);
+
+        // Verificar orden correcto
+        $frases = $respuesta->viewData('frases');
         $this->assertEquals($frase3->id, $frases[0]->id);
         $this->assertEquals($frase2->id, $frases[1]->id);
         $this->assertEquals($frase1->id, $frases[2]->id);
     }
 
-    /**
-     * Test que verifica la relación entre Frase y User.
-     */
-    public function test_frase_belongs_to_user(): void
+    /** Frase pertenece a un usuario */
+    public function test_frase_pertenece_usuario(): void
     {
-        $user = User::factory()->create();
+        $usuario = User::factory()->create();
         $frase = Frase::factory()->create([
-            'user_id' => $user->id,
+            'user_id' => $usuario->id,
         ]);
 
         $this->assertInstanceOf(User::class, $frase->user);
-        $this->assertEquals($user->id, $frase->user->id);
+        $this->assertEquals($usuario->id, $frase->user->id);
     }
 
-    /**
-     * Test que verifica que un usuario puede tener múltiples frases.
-     */
-    public function test_user_can_have_multiple_frases(): void
+    /** Usuario puede tener múltiples frases */
+    public function test_usuario_multiples_frases(): void
     {
-        $user = User::factory()->create();
-        
+        $usuario = User::factory()->create();
+
         Frase::factory()->count(5)->create([
-            'user_id' => $user->id,
+            'user_id' => $usuario->id,
         ]);
 
-        $this->assertCount(5, $user->frases);
+        $this->assertCount(5, $usuario->frases);
     }
 }

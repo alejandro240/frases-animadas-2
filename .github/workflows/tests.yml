@@ -24,10 +24,10 @@ jobs:
     name: PHP ${{ matrix.php }} - ${{ matrix.stability }}
 
     steps:
-      - name: Checkout
+      - name: Descargar código
         uses: actions/checkout@v4
 
-      - name: Setup PHP
+      - name: Configurar PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
@@ -35,20 +35,20 @@ jobs:
           tools: composer:v2
           coverage: xdebug
 
-      - name: Setup Node
+      - name: Configurar Node
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
 
-      - name: Install Node Dependencies
+      - name: Instalar dependencias Node
         run: npm ci
 
-      - name: Add Flux Credentials Loaded From ENV
+      - name: Añadir credenciales Flux
         run: composer config http-basic.composer.fluxui.dev "${{ secrets.FLUX_USERNAME }}" "${{ secrets.FLUX_LICENSE_KEY }}"
         continue-on-error: true
 
-      - name: Cache Composer dependencies
+      - name: Cachear dependencias Composer
         uses: actions/cache@v4
         with:
           path: vendor
@@ -56,40 +56,40 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-php-${{ matrix.php }}-
 
-      - name: Install Dependencies
+      - name: Instalar dependencias
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
-      - name: Copy Environment File
+      - name: Copiar archivo entorno
         run: cp .env.example .env
 
-      - name: Generate Application Key
+      - name: Generar clave aplicación
         run: php artisan key:generate
 
-      - name: Create SQLite Database
+      - name: Crear base de datos SQLite
         run: |
           mkdir -p database
           touch database/database.sqlite
 
-      - name: Run Migrations
+      - name: Ejecutar migraciones
         run: php artisan migrate --force
 
-      - name: Build Assets
+      - name: Compilar assets
         run: npm run build
 
-      - name: Clear Cache
+      - name: Limpiar caché
         run: |
           php artisan config:clear
           php artisan cache:clear
           php artisan view:clear
 
-      - name: Run Tests with Coverage
+      - name: Ejecutar tests con cobertura
         run: ./vendor/bin/pest --coverage --min=70
 
-      - name: Upload Test Results
+      - name: Subir resultados tests
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-php-${{ matrix.php }}
+          name: resultados-tests-php-${{ matrix.php }}
           path: |
             storage/logs/
             tests/results/

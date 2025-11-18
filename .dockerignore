@@ -9,9 +9,9 @@
 .env.*
 !.env.example
 
-# Dependencies
-node_modules
-vendor
+# Dependencies - NO ignorar porque los necesitamos en el build
+# node_modules se instalará en el Dockerfile
+# vendor se instalará en el Dockerfile
 
 # Tests
 tests
@@ -29,7 +29,7 @@ phpunit.xml
 storage/logs/*
 !storage/logs/.gitignore
 
-# Cache
+# Cache (se regenerará en el contenedor)
 storage/framework/cache/*
 !storage/framework/cache/.gitignore
 storage/framework/sessions/*
@@ -41,17 +41,16 @@ storage/framework/views/*
 
 # Documentation
 *.md
-README.md
+!README.md
 CHANGELOG.md
 LICENSE
 
 # CI/CD
 .github/workflows/*
 
-# Build artifacts
+# Build artifacts (se generarán en el contenedor)
 public/hot
 public/storage
-public/build
 
 # Temporary files
 *.txt
@@ -65,7 +64,8 @@ bootstrap/cache/*
 .DS_Store
 Thumbs.db
 
-# NPM
-package-lock.json
-npm-debug.log
-yarn-error.log
+# Docker
+docker-compose.yml
+default.conf
+Dockerfile
+.dockerignore

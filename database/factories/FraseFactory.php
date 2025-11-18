@@ -11,15 +11,10 @@ use Illuminate\Database\Eloquent\Factories\Factory;
  */
 class FraseFactory extends Factory
 {
-    /**
-     * The name of the factory's corresponding model.
-     *
-     * @var class-string<\Illuminate\Database\Eloquent\Model>
-     */
     protected $model = Frase::class;
 
     /**
-     * Define the model's default state.
+     * Estado por defecto del modelo.
      *
      * @return array<string, mixed>
      */
@@ -34,9 +29,7 @@ class FraseFactory extends Factory
         ];
     }
 
-    /**
-     * Indicate that the frase uses matrix animation.
-     */
+    /** Frase con animación matrix */
     public function matrix(): static
     {
         return $this->state(fn (array $attributes) => [
@@ -44,9 +37,7 @@ class FraseFactory extends Factory
         ]);
     }
 
-    /**
-     * Indicate that the frase uses quantum animation.
-     */
+    /** Frase con animación quantum */
     public function quantum(): static
     {
         return $this->state(fn (array $attributes) => [
@@ -54,9 +45,7 @@ class FraseFactory extends Factory
         ]);
     }
 
-    /**
-     * Indicate that the frase uses nebula animation.
-     */
+    /** Frase con animación nebula */
     public function nebula(): static
     {
         return $this->state(fn (array $attributes) => [
@@ -64,9 +53,7 @@ class FraseFactory extends Factory
         ]);
     }
 
-    /**
-     * Indicate that the frase uses hologram animation.
-     */
+    /** Frase con animación hologram */
     public function hologram(): static
     {
         return $this->state(fn (array $attributes) => [
@@ -74,9 +61,7 @@ class FraseFactory extends Factory
         ]);
     }
 
-    /**
-     * Indicate that the frase uses particle animation.
-     */
+    /** Frase con animación particle */
     public function particle(): static
     {
         return $this->state(fn (array $attributes) => [
