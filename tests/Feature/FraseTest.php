@@ -250,10 +250,10 @@ class FraseTest extends TestCase
 
         $respuesta = $this->actingAs($usuario)->get(route('dashboard'));
 
-        $response->assertStatus(200);
+        $respuesta->assertStatus(200);
 
         // Verificar que las frases aparecen en el orden correcto
-        $frases = $response->viewData('frases');
+        $frases = $respuesta->viewData('frases');
         $this->assertEquals($frase3->id, $frases[0]->id);
         $this->assertEquals($frase2->id, $frases[1]->id);
         $this->assertEquals($frase1->id, $frases[2]->id);
@@ -274,7 +274,7 @@ class FraseTest extends TestCase
     /** Usuario puede tener múltiples frases */
     public function test_usuario_multiples_frases(): void
     {
-        $user = User::factory()->create();
+        $usuario = User::factory()->create();
 
         Frase::factory()->count(5)->create([
             'user_id' => $usuario->id,
