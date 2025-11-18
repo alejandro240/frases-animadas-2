@@ -96,4 +96,4 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64
           push: true
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/frases-animadas:latest
+          tags: alejandro240/frases-animadas:latest
