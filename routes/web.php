@@ -12,24 +12,24 @@ Route::get('/', function () {
 Route::middleware(['auth'])->group(function () {
     // Dashboard / Lista de frases del usuario
     Route::get('/dashboard', [App\Http\Controllers\FraseController::class, 'index'])->name('dashboard');
-    
+
     // Alias para mantener compatibilidad con frases.index
     Route::get('/frases', function () {
         return redirect()->route('dashboard');
     })->name('frases.index');
-    
+
     // Página para crear nueva frase
     Route::get('/frases/crear', [App\Http\Controllers\FraseController::class, 'create'])->name('frases.create');
-    
+
     // Almacenar nueva frase
     Route::post('/frases', [App\Http\Controllers\FraseController::class, 'store'])->name('frases.store');
-    
+
     // Ver animación de una frase
     Route::get('/frases/{frase}', [App\Http\Controllers\FraseController::class, 'show'])->name('frases.show');
-    
+
     // Eliminar frase
     Route::delete('/frases/{frase}', [App\Http\Controllers\FraseController::class, 'destroy'])->name('frases.destroy');
-    
+
     Route::redirect('settings', 'settings/profile');
 
     Volt::route('settings/profile', 'settings.profile')->name('profile.edit');
