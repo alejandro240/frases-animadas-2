@@ -1,27 +1,34 @@
-# --- ETAPA 1: Build de Node (Assets) ---
+# --- ETAPA 1: Dependencias PHP (Composer) ---
+FROM composer:2 AS composer_builder
+WORKDIR /app
+
+# Copiar composer.json y composer.lock
+COPY composer*.json ./
+
+# Instalar dependencias de PHP (sin --dev para producción)
+RUN composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-scripts
+
+# Copiar el resto del código
+COPY . .
+
+# Ejecutar scripts post-install si es necesario
+RUN composer dump-autoload --optimize
+
+# --- ETAPA 2: Build de Node (Assets) ---
 FROM node:22-alpine AS node_builder
 WORKDIR /app
 
 # Copiar package.json y package-lock.json
 COPY package*.json ./
+
 # Instalar dependencias de Node
 RUN npm ci
 
-# Copiar el resto del código
-COPY . .
+# Copiar código y vendor desde composer (necesario para flux.css)
+COPY --from=composer_builder /app /app
 
 # Construir los assets
 RUN npm run build
-
-# --- ETAPA 2: Dependencias PHP (Composer) ---
-FROM composer:2 AS composer_builder
-WORKDIR /app
-
-# Copiar código de la aplicación y assets construidos
-COPY --from=node_builder /app /app
-
-# Instalar dependencias de PHP (sin --dev para producción)
-RUN composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
 
 # --- ETAPA 3: Imagen Final ---
 FROM php:8.4-fpm-alpine
@@ -42,8 +49,8 @@ RUN set -eux; \
 # Definir directorio de trabajo
 WORKDIR /var/www/html
 
-# Copiar código de aplicación (con assets y dependencias) desde stage de Composer
-COPY --from=composer_builder /app /var/www/html
+# Copiar código de aplicación con assets compilados y dependencias
+COPY --from=node_builder /app /var/www/html
 
 # Ajustar permisos y generar clave de aplicación
 # Mantener usuario ROOT temporalmente para permisos y generación
