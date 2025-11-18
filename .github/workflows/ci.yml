@@ -97,5 +97,3 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: ${{ secrets.DOCKER_HUB_USERNAME }}/frases-animadas:latest
-          cache-from: type=registry,ref=${{ secrets.DOCKER_HUB_USERNAME }}/frases-animadas:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKER_HUB_USERNAME }}/frases-animadas:buildcache,mode=max
