@@ -1,30 +1,34 @@
-# --- ETAPA 1: Build de Node (Assets) ---
+# --- ETAPA 1: Dependencias PHP (Composer) ---
+FROM composer:2 AS composer_builder
+WORKDIR /app
+
+# Copiar archivos necesarios para Composer
+COPY composer.json composer.lock ./
+
+# Instalar dependencias de PHP (sin --dev para producción)
+RUN composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-scripts
+
+# Copiar el resto del código
+COPY . .
+
+# Ejecutar scripts post-install
+RUN composer dump-autoload --optimize
+
+# --- ETAPA 2: Build de Node (Assets) ---
 FROM node:22-alpine AS node_builder
 WORKDIR /app
 
 # Instalar dependencias necesarias para compilaciones nativas
 RUN apk add --no-cache python3 make g++
 
-# Copiar package.json y package-lock.json
-COPY package*.json ./
+# Copiar código con dependencias de Composer ya instaladas
+COPY --from=composer_builder /app /app
+
 # Instalar dependencias de Node (incluyendo opcionales)
 RUN npm ci --include=optional
 
-# Copiar el resto del código
-COPY . .
-
-# Construir los assets
+# Construir los assets (ahora vendor/livewire/flux existe)
 RUN npm run build
-
-# --- ETAPA 2: Dependencias PHP (Composer) ---
-FROM composer:2 AS composer_builder
-WORKDIR /app
-
-# Copiar código de la aplicación y assets construidos
-COPY --from=node_builder /app /app
-
-# Instalar dependencias de PHP (sin --dev para producción)
-RUN composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
 
 # --- ETAPA 3: Imagen Final ---
 FROM php:8.4-fpm-alpine
@@ -46,8 +50,8 @@ RUN set -eux; \
 # Definir directorio de trabajo
 WORKDIR /var/www/html
 
-# Copiar código de aplicación (con assets y dependencias) desde stage de Composer
-COPY --from=composer_builder /app /var/www/html
+# Copiar código de aplicación (con assets construidos) desde stage de Node
+COPY --from=node_builder /app /var/www/html
 
 # Ajustar permisos y generar clave de aplicación
 # Mantener usuario ROOT temporalmente para permisos y generación
