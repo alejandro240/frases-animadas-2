@@ -1,5 +1,7 @@
 name: Calidad de Código
 
+# WORKFLOW: Mantiene código formateado y sin errores estáticos
+# Laravel Pint hace auto-commit si encuentra cambios de formato
 on:
   push:
     branches:
@@ -11,9 +13,10 @@ on:
       - main
 
 permissions:
-  contents: write
+  contents: write  # Necesario para auto-commit de Pint
 
 jobs:
+  # JOB 1: Laravel Pint - Formateo automático de código
   lint:
     runs-on: ubuntu-latest
     environment: Testing
@@ -55,6 +58,7 @@ jobs:
         id: git-check
         run: echo "modified=$(if git diff-index --quiet HEAD --; then echo 'false'; else echo 'true'; fi)" >> $GITHUB_OUTPUT
 
+      # AUTO-COMMIT: Si Pint modificó archivos, hace commit automáticamente
       - name: Confirmar cambios
         if: steps.git-check.outputs.modified == 'true'
         uses: stefanzweifel/git-auto-commit-action@v5
@@ -66,6 +70,7 @@ jobs:
             !vendor/**
             !node_modules/**
 
+  # JOB 2: PHPStan - Análisis estático sin ejecutar código
   phpstan:
     runs-on: ubuntu-latest
 

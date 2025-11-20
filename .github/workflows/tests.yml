@@ -1,5 +1,7 @@
 name: Tests
 
+# WORKFLOW: Verifica cobertura de código con mínimo 70%
+# Se ejecuta en paralelo con ci.yml en cada push/PR
 on:
   push:
     branches:
@@ -82,6 +84,8 @@ jobs:
           php artisan cache:clear
           php artisan view:clear
 
+      # COBERTURA: Requiere mínimo 70% de cobertura de código
+      # Si está por debajo, el workflow falla
       - name: Ejecutar tests con cobertura
         run: ./vendor/bin/pest --coverage --min=70
 

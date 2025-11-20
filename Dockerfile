@@ -1,4 +1,5 @@
 # --- ETAPA 1: Dependencias PHP (Composer) ---
+# IMPORTANTE: Esta etapa debe ir PRIMERO para que vendor/livewire/flux exista antes de compilar assets
 FROM composer:2 AS composer_builder
 WORKDIR /app
 
@@ -15,10 +16,11 @@ COPY . .
 RUN composer dump-autoload --optimize
 
 # --- ETAPA 2: Build de Node (Assets) ---
+# Compila CSS/JS con Vite. Necesita vendor/ de la etapa anterior para acceder a flux.css
 FROM node:22-alpine AS node_builder
 WORKDIR /app
 
-# Instalar dependencias necesarias para compilaciones nativas
+# Instalar dependencias necesarias para compilaciones nativas (Tailwind v4)
 RUN apk add --no-cache python3 make g++
 
 # Copiar código con dependencias de Composer ya instaladas
@@ -27,10 +29,11 @@ COPY --from=composer_builder /app /app
 # Instalar dependencias de Node (incluyendo opcionales)
 RUN npm ci --include=optional
 
-# Construir los assets (ahora vendor/livewire/flux existe)
+# Construir los assets - Genera public/build/ con CSS/JS compilados
 RUN npm run build
 
 # --- ETAPA 3: Imagen Final ---
+# Esta es la imagen que se sube a Docker Hub como alejandro240/frases-animadas:latest
 FROM php:8.4-fpm-alpine
 
 # Paquetes + extensiones PHP necesarias para Laravel + SQLite
@@ -50,7 +53,8 @@ RUN set -eux; \
 # Definir directorio de trabajo
 WORKDIR /var/www/html
 
-# Copiar código de aplicación (con assets construidos) desde stage de Node
+# COPIAR TODO: Código + vendor/ + node_modules/ + public/build/ (assets compilados)
+# Esta imagen contendrá TODO lo necesario para ejecutar la aplicación
 COPY --from=node_builder /app /var/www/html
 
 # Ajustar permisos y generar clave de aplicación
