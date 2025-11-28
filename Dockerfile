@@ -1,13 +1,16 @@
 # --- ETAPA 1: Dependencias PHP (Composer) ---
 # IMPORTANTE: Esta etapa debe ir PRIMERO para que vendor/livewire/flux exista antes de compilar assets
 FROM composer:2 AS composer_builder
+
+RUN apk add --no-cache php84 php84-phar php84-mbstring php84-openssl php84-zip php84-dom php84-xml
+
 WORKDIR /app
 
 # Copiar archivos necesarios para Composer
 COPY composer.json composer.lock ./
 
 # Instalar dependencias de PHP (sin --dev para producción)
-RUN composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-scripts
+RUN composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-scripts --ignore-platform-req=php
 
 # Copiar el resto del código
 COPY . .
